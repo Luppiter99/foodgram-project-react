@@ -88,8 +88,9 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         source: |
-            ${{ github.workspace }}/infra/docker-compose.production.yml
-            ${{ github.workspace }}/infra/nginx.conf
+          /home/runner/work/foodgram-project-react/foodgram-project-react/infra/docker-compose.production.yml
+          /home/runner/work/foodgram-project-react/foodgram-project-react/infra/nginx.conf
+
 
         target: "foodgram"
 
