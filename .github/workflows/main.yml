@@ -88,7 +88,7 @@ jobs:
         source: |
           infra/docker-compose.production.yml
           infra/nginx.conf
-        target: "/home/yc-user/foodgram"
+        target: "foodgram"
 
     - name: Copy frontend
       uses: appleboy/scp-action@master
