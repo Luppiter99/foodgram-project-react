@@ -14,11 +14,22 @@ class IngredientAdmin(admin.ModelAdmin):
     list_filter = ('name',)
 
 
+class RecipeIngredientInline(admin.TabularInline):
+    model = RecipeIngredient
+    extra = 1  # Количество пустых форм для добавления
+
+
+class RecipeTagInline(admin.TabularInline):
+    model = Recipe.tags.through
+    extra = 1
+
+
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author', 'favorite_count')
     search_fields = ('name', 'author__username')
     list_filter = ('author', 'name', 'tags')
+    inlines = [RecipeIngredientInline, RecipeTagInline]
 
     def favorite_count(self, obj):
         return obj.favorited_by.count()
