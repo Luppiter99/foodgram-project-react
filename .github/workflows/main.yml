@@ -108,8 +108,6 @@ jobs:
         source: "frontend/"
         target: "/home/yc-user/"
 
-
-    # Выполняем команды на сервере для развертывания обновленного приложения
     - name: Executing remote ssh commands to deploy
       uses: appleboy/ssh-action@master
       with:
