@@ -77,6 +77,10 @@ jobs:
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
+    - name: Debugging: Check if files exist
+      run: |
+        ls -al ${{ github.workspace }}/infra/
+        ls -al ${{ github.workspace }}/frontend/
 
     - name: Copy docker-compose.production.yml and nginx.conf
       uses: appleboy/scp-action@master
