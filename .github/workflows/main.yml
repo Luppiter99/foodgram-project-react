@@ -77,6 +77,8 @@ jobs:
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
+    - name: List files in infra directory
+      run: ls -la ${{ github.workspace }}/infra
 
     - name: Copy docker-compose.production.yml and nginx.conf
       uses: appleboy/scp-action@master
