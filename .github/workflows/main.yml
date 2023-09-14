@@ -86,8 +86,8 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         source: |
-          docker-compose.production.yml
-          nginx.conf
+          infra/docker-compose.production.yml
+          infra/nginx.conf
         target: "/home/yc-user/foodgram"
 
     - name: Copy frontend
