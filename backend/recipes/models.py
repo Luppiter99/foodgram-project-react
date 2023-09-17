@@ -1,7 +1,7 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from users.models import CustomUser
-
 from .utils import validate_color
 
 
@@ -12,7 +12,7 @@ class Tag(models.Model):
     slug = models.SlugField(unique=True)
 
     class Meta:
-        ordering = ['id']
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -23,7 +23,7 @@ class Ingredient(models.Model):
     measurement_unit = models.CharField(max_length=50)
 
     class Meta:
-        ordering = ['id']
+        ordering = ['name']
         constraints = [
             models.UniqueConstraint(fields=['name', 'measurement_unit'],
                                     name='unique_ingredient')
@@ -39,14 +39,20 @@ class Recipe(models.Model):
 
     name = models.CharField(max_length=100)
     image = models.ImageField(upload_to='recipes/')
+    pub_date = models.DateTimeField(auto_now_add=True,
+                                    verbose_name="Date of Publication")
     text = models.TextField()
-    cooking_time = models.PositiveIntegerField()
+    cooking_time = models.PositiveIntegerField(validators=[
+        MinValueValidator(1),
+        MaxValueValidator(1440)
+    ])
+
     tags = models.ManyToManyField(Tag, through='RecipeTag')
     ingredients = models.ManyToManyField(Ingredient,
                                          through='RecipeIngredient')
 
     class Meta:
-        ordering = ['id']
+        ordering = ['-pub_date']
 
     def __str__(self):
         return self.name
@@ -62,6 +68,7 @@ class UserRecipeRelation(models.Model):
             models.UniqueConstraint(fields=['user', 'recipe'],
                                     name='unique_user_recipe')
         ]
+        ordering = ['user_id']
 
     def __str__(self):
         return f"{self.user.username} - {self.recipe.name}"
@@ -73,10 +80,6 @@ class FavoriteRecipe(UserRecipeRelation):
             models.UniqueConstraint(fields=['user', 'recipe'],
                                     name='unique_favorite_recipe')
         ]
-    user = models.ForeignKey(CustomUser, related_name='favorite_recipes',
-                             on_delete=models.CASCADE)
-    recipe = models.ForeignKey(Recipe, related_name='favorited_by',
-                               on_delete=models.CASCADE)
 
 
 class ShoppingList(UserRecipeRelation):
@@ -85,10 +88,6 @@ class ShoppingList(UserRecipeRelation):
             models.UniqueConstraint(fields=['user', 'recipe'],
                                     name='unique_shopping_list')
         ]
-    user = models.ForeignKey(CustomUser, related_name='shopping_lists',
-                             on_delete=models.CASCADE)
-    recipe = models.ForeignKey(Recipe, related_name='in_shopping_list',
-                               on_delete=models.CASCADE)
 
 
 class RecipeIngredient(models.Model):
@@ -96,10 +95,13 @@ class RecipeIngredient(models.Model):
                                related_name='recipe_ingredients')
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE,
                                    related_name='ingredient_recipes')
-    amount = models.PositiveIntegerField()
+    amount = models.PositiveIntegerField(validators=[
+        MinValueValidator(1),
+        MaxValueValidator(10000)
+    ])
 
     class Meta:
-        ordering = ['id']
+        ordering = ['recipe_id']
         constraints = [
             models.UniqueConstraint(fields=['recipe', 'ingredient'],
                                     name='unique_recipe_ingredient')
@@ -119,7 +121,7 @@ class RecipeTag(models.Model):
                             related_name='tag_recipes')
 
     class Meta:
-        ordering = ['id']
+        ordering = ['recipe_id']
         constraints = [
             models.UniqueConstraint(fields=['recipe', 'tag'],
                                     name='unique_recipe_tag')

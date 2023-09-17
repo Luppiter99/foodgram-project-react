@@ -5,8 +5,8 @@ from .models import CustomUser, Subscription
 
 @admin.register(CustomUser)
 class CustomUserAdmin(admin.ModelAdmin):
-    list_display = ('username', 'email')
-    search_fields = ('username', 'email')
+    list_display = ('email', 'username')
+    search_fields = ('email', 'username')
     list_filter = ('email', 'username')
 
 

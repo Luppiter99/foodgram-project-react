@@ -4,12 +4,10 @@ from django.http import HttpResponse
 from django_filters import rest_framework as filters
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.exceptions import PermissionDenied
 
 from users.models import CustomUser, Subscription
 from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
@@ -19,18 +17,14 @@ from api.serializers import (
     CustomUserWithRecipesSerializer,
     IngredientSerializer,
     RecipeIngredientSerializer,
-    RecipeSerializer,
+    RecipeReadSerializer,
+    RecipeWriteSerializer,
     TagSerializer,
     FavoriteRecipe,
     ShoppingList
 )
 from recipes.filters import RecipeFilter, IngredientFilter
-
-
-class CustomUserPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'limit'
-    max_page_size = 1000
+from .pagination import CustomUserPagination
 
 
 class CustomUserViewSet(viewsets.ModelViewSet):
@@ -68,7 +62,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
                 author, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        elif request.method == 'DELETE':
+        else:
             user = self.request.user
             author = self.get_object()
 
@@ -84,23 +78,33 @@ class CustomUserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET'],
             permission_classes=[IsAuthenticated])
     def subscriptions(self, request):
-        subscriptions = Subscription.objects.filter(
-            user=request.user
-        ).prefetch_related('author', 'author__recipes')
+        recipes_limit = request.query_params.get('recipes_limit', None)
+        if recipes_limit:
+            try:
+                recipes_limit = int(recipes_limit)
+            except ValueError:
+                return Response({'error': 'Invalid recipes_limit value'},
+                                status=status.HTTP_400_BAD_REQUEST)
 
+        subscriptions = (Subscription.objects.filter(user=request.user)
+                         .prefetch_related('author', 'author__recipes'))
         page = self.paginate_queryset(subscriptions)
         if page is not None:
             serializer = CustomUserWithRecipesSerializer(
                 [sub.author for sub in page],
                 many=True,
-                context={'request': request}
+                context={
+                    'request': request,
+                    'recipes_limit': recipes_limit}
             )
             return self.get_paginated_response(serializer.data)
 
         serializer = CustomUserWithRecipesSerializer(
             [sub.author for sub in subscriptions],
             many=True,
-            context={'request': request}
+            context={
+                'request': request,
+                'recipes_limit': recipes_limit}
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -146,7 +150,7 @@ class CustomTokenObtainPairView(APIView):
                         status=status.HTTP_401_UNAUTHORIZED)
 
 
-class TokenDestroyView(APIView):
+class TokenLogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -168,8 +172,9 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
+    queryset = Recipe.objects.all().order_by('-pub_date')
+    serializer_class = RecipeReadSerializer
+    permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -178,7 +183,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if action_type == 'create':
             model.objects.get_or_create(user=request.user, recipe=recipe)
             return Response(status=status.HTTP_201_CREATED)
-        elif action_type == 'delete':
+        else:
             model.objects.filter(user=request.user, recipe=recipe).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -188,7 +193,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             self.manage_relation(request, FavoriteRecipe, 'create', pk)
             return Response({"detail": "Recipe added to favorites."},
                             status=status.HTTP_201_CREATED)
-        elif request.method == 'DELETE':
+        else:
             self.manage_relation(request, FavoriteRecipe, 'delete', pk)
             return Response({"detail": "Recipe removed from favorites."},
                             status=status.HTTP_200_OK)
@@ -199,41 +204,35 @@ class RecipeViewSet(viewsets.ModelViewSet):
             self.manage_relation(request, ShoppingList, 'create', pk)
             return Response({"detail": "Recipe added to shopping cart."},
                             status=status.HTTP_201_CREATED)
-        elif request.method == 'DELETE':
+        else:
             self.manage_relation(request, ShoppingList, 'delete', pk)
             return Response({"detail": "Recipe removed from shopping cart."},
                             status=status.HTTP_200_OK)
 
-    def perform_update(self, serializer):
-        if self.get_object().author != self.request.user:
-            raise PermissionDenied(
-                "You can't update a recipe you didn't create!"
-            )
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        if instance.author != self.request.user:
-            raise PermissionDenied(
-                "You can't delete a recipe you didn't create!"
-            )
-        instance.delete()
-
     @action(detail=False, methods=['GET'], url_path='download_shopping_cart')
     def download_shopping_cart(self, request):
         user = request.user
-        shopping_list = ShoppingList.objects.filter(user=user)
+        shopping_list_recipes = (
+            ShoppingList.objects.filter(user=user).values_list('recipe',
+                                                               flat=True)
+        )
+        ingredients = RecipeIngredient.objects.filter(
+            recipe__in=shopping_list_recipes
+        )
+
+        aggregated_ingredients = {}
+        for ingredient in ingredients:
+            key = (
+                ingredient.ingredient.name,
+                ingredient.ingredient.measurement_unit
+            )
+            if key not in aggregated_ingredients:
+                aggregated_ingredients[key] = 0
+            aggregated_ingredients[key] += ingredient.amount
+
         ingredients_list = []
-
-        for item in shopping_list:
-            recipe = item.recipe
-            recipe_ingredients = RecipeIngredient.objects.filter(recipe=recipe)
-
-            for ri in recipe_ingredients:
-                ingredient = ri.ingredient
-                ingredients_list.append(
-                    f"{ingredient.name} - {ri.amount}"
-                    f" {ingredient.measurement_unit}"
-                )
+        for (name, unit), amount in aggregated_ingredients.items():
+            ingredients_list.append(f"{name} ({unit}) — {amount}")
 
         response = HttpResponse('\n'.join(ingredients_list),
                                 content_type='text/plain')
@@ -241,6 +240,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'attachment; filename="shopping_list.txt"'
         )
         return response
+
+    def create(self, request, *args, **kwargs):
+        self.serializer_class = RecipeWriteSerializer
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        self.serializer_class = RecipeWriteSerializer
+        return super().update(request, *args, **kwargs)
 
 
 class RecipeIngredientViewSet(viewsets.ModelViewSet):

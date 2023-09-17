@@ -5,8 +5,11 @@ from django.db import models
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
+
     class Meta:
-        ordering = ['id']
+        ordering = ('username',)
 
 
 class Subscription(models.Model):
@@ -20,4 +23,4 @@ class Subscription(models.Model):
             models.UniqueConstraint(fields=['user', 'author'],
                                     name='unique_subscription')
         ]
-        ordering = ['id']
+        ordering = ('user',)
