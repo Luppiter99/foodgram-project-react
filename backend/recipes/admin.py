@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
-from .models import Ingredient, Recipe, RecipeIngredient, RecipeTag, Tag
+from .models import (
+    Ingredient, Recipe, RecipeIngredient, RecipeTag, Tag,
+    FavoriteRecipe)
 
 
 @admin.register(Tag)
@@ -17,7 +19,7 @@ class IngredientAdmin(admin.ModelAdmin):
 
 class RecipeIngredientInline(admin.TabularInline):
     model = RecipeIngredient
-    extra = 1  # Количество пустых форм для добавления
+    extra = 1
 
 
 class RecipeTagInline(admin.TabularInline):
@@ -33,15 +35,14 @@ class RecipeAdmin(admin.ModelAdmin):
     inlines = [RecipeIngredientInline, RecipeTagInline]
 
     def favorite_count(self, obj):
-        return obj.favorited_by.count()
+        return FavoriteRecipe.objects.filter(recipe=obj).count()
 
-    def save_model(self, request, obj, form, change):
-        if change:
-            if not obj.recipe_ingredients.all():
-                raise ValidationError(
-                    "Рецепт должен иметь хотя бы один ингредиент!"
-                )
-        super().save_model(request, obj, form, change)
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if not form.instance.recipe_ingredients.all():
+            raise ValidationError(
+                "Рецепт должен иметь хотя бы один ингредиент!"
+            )
 
 
 @admin.register(RecipeIngredient)

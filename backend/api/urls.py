@@ -8,7 +8,7 @@ from .views import (
     RecipeViewSet,
     TagViewSet,
     CustomTokenObtainPairView,
-    TokenLogoutView
+    TokenDeletionView
 )
 
 router_v1 = DefaultRouter()
@@ -21,6 +21,6 @@ urlpatterns = [
     path('', include(router_v1.urls)),
     path('auth/token/login/', CustomTokenObtainPairView.as_view(),
          name='custom_token_obtain_pair'),
-    path('auth/token/logout/', TokenLogoutView.as_view(),
+    path('auth/token/logout/', TokenDeletionView.as_view(),
          name='token_logout'),
 ]

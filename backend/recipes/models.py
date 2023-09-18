@@ -43,8 +43,14 @@ class Recipe(models.Model):
                                     verbose_name="Date of Publication")
     text = models.TextField()
     cooking_time = models.PositiveIntegerField(validators=[
-        MinValueValidator(1),
-        MaxValueValidator(1440)
+        MinValueValidator(
+            1,
+            message="Cooking time cannot be less than 1 minute."
+        ),
+        MaxValueValidator(
+            1440,
+            message="Cooking time cannot exceed 1440 minutes (24 hours)."
+        )
     ])
 
     tags = models.ManyToManyField(Tag, through='RecipeTag')
@@ -64,10 +70,6 @@ class UserRecipeRelation(models.Model):
 
     class Meta:
         abstract = True
-        constraints = [
-            models.UniqueConstraint(fields=['user', 'recipe'],
-                                    name='unique_user_recipe')
-        ]
         ordering = ['user_id']
 
     def __str__(self):
@@ -96,8 +98,14 @@ class RecipeIngredient(models.Model):
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE,
                                    related_name='ingredient_recipes')
     amount = models.PositiveIntegerField(validators=[
-        MinValueValidator(1),
-        MaxValueValidator(10000)
+        MinValueValidator(
+            1,
+            message="Ingredient amount cannot be less than 1."
+        ),
+        MaxValueValidator(
+            10000,
+            message="Ingredient amount cannot exceed 10,000."
+        )
     ])
 
     class Meta:

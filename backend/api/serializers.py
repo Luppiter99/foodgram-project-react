@@ -160,16 +160,11 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         instance.tags.clear()
-
         instance.ingredients.clear()
-
         tags = validated_data.pop('tags')
         new_ingredients_data = validated_data.pop('ingredients')
-
         instance = super().update(instance, validated_data)
-
         instance.tags.set(tags)
-
         for ingredient_data in new_ingredients_data:
             RecipeIngredient.objects.update_or_create(
                 recipe=instance,
@@ -178,13 +173,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                     'amount': ingredient_data['amount']
                 }
             )
-
         return instance
 
     def to_representation(self, instance):
-        request = self.context.get('request')
-        context = {'request': request}
-        return RecipeReadSerializer(instance, context=context).data
+        return RecipeReadSerializer(instance, context=self.context).data
 
 
 class FavoriteRecipeSerializer(serializers.ModelSerializer):

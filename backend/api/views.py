@@ -62,18 +62,17 @@ class CustomUserViewSet(viewsets.ModelViewSet):
                 author, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        else:
-            user = self.request.user
-            author = self.get_object()
+        user = self.request.user
+        author = self.get_object()
 
-            subscription = Subscription.objects.filter(user=user,
-                                                       author=author)
-            if not subscription.exists():
-                return Response({'error': 'Not subscribed'},
-                                status=status.HTTP_400_BAD_REQUEST)
+        subscription = Subscription.objects.filter(user=user,
+                                                   author=author)
+        if not subscription.exists():
+            return Response({'error': 'Not subscribed'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-            subscription.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        subscription.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['GET'],
             permission_classes=[IsAuthenticated])
@@ -150,7 +149,7 @@ class CustomTokenObtainPairView(APIView):
                         status=status.HTTP_401_UNAUTHORIZED)
 
 
-class TokenLogoutView(APIView):
+class TokenDeletionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -183,9 +182,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if action_type == 'create':
             model.objects.get_or_create(user=request.user, recipe=recipe)
             return Response(status=status.HTTP_201_CREATED)
-        else:
-            model.objects.filter(user=request.user, recipe=recipe).delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        model.objects.filter(user=request.user, recipe=recipe).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['POST', 'DELETE'], url_path='favorite')
     def manage_favorites(self, request, pk=None):
@@ -193,10 +191,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             self.manage_relation(request, FavoriteRecipe, 'create', pk)
             return Response({"detail": "Recipe added to favorites."},
                             status=status.HTTP_201_CREATED)
-        else:
-            self.manage_relation(request, FavoriteRecipe, 'delete', pk)
-            return Response({"detail": "Recipe removed from favorites."},
-                            status=status.HTTP_200_OK)
+        self.manage_relation(request, FavoriteRecipe, 'delete', pk)
+        return Response({"detail": "Recipe removed from favorites."},
+                        status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['POST', 'DELETE'], url_path='shopping_cart')
     def manage_shopping_cart(self, request, pk=None):
@@ -204,10 +201,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             self.manage_relation(request, ShoppingList, 'create', pk)
             return Response({"detail": "Recipe added to shopping cart."},
                             status=status.HTTP_201_CREATED)
-        else:
-            self.manage_relation(request, ShoppingList, 'delete', pk)
-            return Response({"detail": "Recipe removed from shopping cart."},
-                            status=status.HTTP_200_OK)
+        self.manage_relation(request, ShoppingList, 'delete', pk)
+        return Response({"detail": "Recipe removed from shopping cart."},
+                        status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['GET'], url_path='download_shopping_cart')
     def download_shopping_cart(self, request):
@@ -241,12 +237,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
         )
         return response
 
+    def get_serializer_class(self):
+        if self.request.method in ['POST', 'PUT', 'PATCH']:
+            return RecipeWriteSerializer
+        return RecipeReadSerializer
+
     def create(self, request, *args, **kwargs):
-        self.serializer_class = RecipeWriteSerializer
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        self.serializer_class = RecipeWriteSerializer
         return super().update(request, *args, **kwargs)
 
 
