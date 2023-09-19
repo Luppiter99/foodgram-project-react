@@ -1,5 +1,6 @@
 from django.contrib import admin
-from django.core.exceptions import ValidationError
+from django.contrib import messages
+from django.http import HttpResponseRedirect
 
 from .models import (
     Ingredient, Recipe, RecipeIngredient, RecipeTag, Tag,
@@ -37,12 +38,31 @@ class RecipeAdmin(admin.ModelAdmin):
     def favorite_count(self, obj):
         return FavoriteRecipe.objects.filter(recipe=obj).count()
 
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        if not form.instance.recipe_ingredients.all():
-            raise ValidationError(
-                "Рецепт должен иметь хотя бы один ингредиент!"
+    def changeform_view(self, request, object_id=None, form_url='',
+                        extra_context=None):
+        if request.method == 'POST':
+            change = object_id is not None
+            formsets, inline_instances = self._create_formsets(
+                request, None, change
             )
+            ingredients_formset = None
+            for formset, inline in zip(formsets, inline_instances):
+                if isinstance(inline, RecipeIngredientInline):
+                    ingredients_formset = formset
+                    break
+
+            if ingredients_formset and not any(
+                form.is_valid() and form.has_changed()
+                for form in ingredients_formset
+            ):
+                messages.error(
+                    request,
+                    "Рецепт должен иметь хотя бы один ингредиент!"
+                )
+                return HttpResponseRedirect(request.path)
+
+        return super().changeform_view(request, object_id, form_url,
+                                       extra_context)
 
 
 @admin.register(RecipeIngredient)
