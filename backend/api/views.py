@@ -65,8 +65,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         user = self.request.user
         author = self.get_object()
 
-        subscription = Subscription.objects.filter(user=user,
-                                                   author=author)
+        subscription = user.following.filter(author=author)
         if not subscription.exists():
             return Response({'error': 'Not subscribed'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -149,7 +148,7 @@ class CustomTokenObtainPairView(APIView):
                         status=status.HTTP_401_UNAUTHORIZED)
 
 
-class TokenDeletionView(APIView):
+class TokenLogoutConfirmationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -241,12 +240,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if self.request.method in ['POST', 'PUT', 'PATCH']:
             return RecipeWriteSerializer
         return RecipeReadSerializer
-
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
 
 
 class RecipeIngredientViewSet(viewsets.ModelViewSet):
